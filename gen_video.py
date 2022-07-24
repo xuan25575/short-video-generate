@@ -18,6 +18,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+from moviepy.editor import *
 
 # ocr 目录路径
 ocr_dir_path = r'/Users/code/py/short-video-generate/BaiduImageSpider/ocr_result/搞笑聊天对话'
@@ -28,6 +29,7 @@ gen_image_dir_path = r'/Users/code/py/short-video-generate/gen/wechat_images'
 # 生成视频的目录
 gen_video_dir_path = r'/Users/code/py/short-video-generate/gen/wechat_videos'
 gen_video_dir_path2 = r'/Users/code/py/short-video-generate/gen/wechat_videos2'
+gen_video_dir_path3 = r'/Users/code/py/short-video-generate/gen/wechat_videos3'
 # 提取音频的目录
 sound_dir_path = r'/Users/code/py/short-video-generate/gen/video_sounds'
 
@@ -191,7 +193,7 @@ def gen_video_from_image():
     for img_dir in os.listdir(gen_image_dir_path):
         if img_dir == '.DS_Store':
             continue
-        video_path = os.path.join(gen_video_dir_path, f'{img_dir}.avi')
+        video_path = os.path.join(gen_video_dir_path, 'temp_'+f'{img_dir}.avi')
         image_folder = os.path.join(gen_image_dir_path, img_dir)
         images = [img for img in os.listdir(image_folder) if img.endswith(".jpeg")]
         if not images:
@@ -259,11 +261,53 @@ def add_sound_to_video():
         new_video = video.set_audio(audio)  # 加入音频
         save_path = os.path.join(gen_video_dir_path2, f"{video_name.split('.')[0]}-sound.mp4")
         new_video.write_videofile(save_path, threads=8)  # 写入保存的路径
+        # 渐变
+        gradient_path = os.path.join(gen_video_dir_path3, f"{video_name.split('.')[0]}-gradient.mp4")
+        special_effects(save_path, gradient_path)
         video.close()
         audio.close()
         new_video.close()
         print(f'{save_path} 生成成功')
 
+def special_effects(inputfile, outputfile):
+    """
+     将输入视频加工 成 特殊效果，开头结尾渐变效果
+    :param inputfile:
+    :param outputfile:
+    :return:
+    """
+    video = VideoFileClip(inputfile)
+    w, h = video.size
+    subvideo = video.subclip(0, 8).fadein(4, (0.5, 1, 1))
+    subvideo1 = video.subclip(8, video.duration - 6)
+    subvideo2 = video.subclip(video.duration - 6).fadeout(2, (0, 0, 0))
+
+    txt = TextClip('搞笑聊天', font='simhei.ttf', fontsize=40)
+    final_clip = concatenate_videoclips([subvideo, subvideo1, subvideo2])
+    painting_txt = (CompositeVideoClip([final_clip, txt.set_pos((w / 2, h - 100))]).set_duration(final_clip.duration))
+
+    # w,h=subvideo1.size
+    # subvideo1.mask.get_frame=lambda t:circle(screensize(subvideo1.w,subvideo1.h),center=(subvideo1.w/2,subvideo1.h/4),radius=max(0,int(800-200*t)),col1=1,col2=0,blur=4)
+    # trans=ImageClip('mount.jpg').resize(video.size)
+    # resultvideo=concatenate_videoclips([subvideo,subvideo1,subvideo2])
+    # resultvideo.write_videofile(outputfile)
+    painting_txt.write_videofile(outputfile)
+
+def del_temp_file(path):
+    """
+    删除目录下的临时文件
+    :param path:
+    :return:
+    """
+    # 删除临时文件
+    g = os.walk(path)
+
+    for path, dir_list, file_list in g:
+        print(path)
+        for file_name in file_list:
+            print(file_name)
+            if file_name.startswith('temp'):
+                os.remove(path +os.sep+file_name)
 
 if __name__ == '__main__':
     create_dirs([gen_image_dir_path, gen_video_dir_path, clean_ocr_dir_path, sound_dir_path, gen_video_dir_path2])
@@ -274,8 +318,9 @@ if __name__ == '__main__':
     # 通过 orc json 和 自动微信聊天生成，并生成一批图片
     # gen_wechat_image(browser)
     # 通过生成的一批图片，生成视频
-    gen_video_from_image()
+    # gen_video_from_image()
     # 从抖音下载的视频 转 音频
-    # get_sound_from_video()
+    get_sound_from_video()
     # 将音频添加到自己的视频中
-    # add_sound_to_video()
+    add_sound_to_video()
+    #del_temp_file("./gen/")
