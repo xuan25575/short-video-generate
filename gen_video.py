@@ -19,9 +19,8 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
-
 # ocr 目录路径
-ocr_dir_path = r'/Users/code/py/short-video-generate/BaiduImageSpider/ocr_result/funny_chat'
+ocr_dir_path = r'/Users/code/py/short-video-generate/BaiduImageSpider/ocr_result/搞笑聊天对话'
 # 清理后的ocr结果
 clean_ocr_dir_path = r'/Users/code/py/short-video-generate/gen/clean_ocr'
 # 生成聊天图片的目录
@@ -31,6 +30,7 @@ gen_video_dir_path = r'/Users/code/py/short-video-generate/gen/wechat_videos'
 gen_video_dir_path2 = r'/Users/code/py/short-video-generate/gen/wechat_videos2'
 # 提取音频的目录
 sound_dir_path = r'/Users/code/py/short-video-generate/gen/video_sounds'
+
 
 # https://blog.csdn.net/SKY_PLA/article/details/123662640
 # https://blog.csdn.net/qq_37508131/article/details/123794345
@@ -53,6 +53,8 @@ def create_dirs(dir_paths):
 
 def get_ocr_json(ocr_path):
     for ocr_file_name in os.listdir(ocr_path):
+        if ocr_file_name == '.DS_Store':
+            continue
         ocr_file_path = os.path.join(ocr_path, ocr_file_name)
 
         with open(ocr_file_path, 'r', encoding='utf-8') as f:
@@ -117,9 +119,12 @@ def wait_element_xpath(browser, xpath, wait_time=15):
         print(f'[wait_element_css] 等待超时, error: {e}')
         raise
 
+
 # 生成聊天图片
 def gen_wechat_image(browser):
     for ocr_file_name in os.listdir(clean_ocr_dir_path):
+        if ocr_file_name == '.DS_Store':
+            continue
         ocr_file_path = os.path.join(clean_ocr_dir_path, ocr_file_name)
         with open(ocr_file_path, 'r', encoding='utf-8') as f:
             ocr_json = f.read()
@@ -145,7 +150,6 @@ def gen_wechat_image(browser):
         browser.execute_script("arguments[0].click();",
                                browser.find_element(by=By.XPATH, value='//*[@id="w2"]/div/div[3]/input[2]'))
         for ocr_item in ocr_json_list:
-
 
             postion = ocr_item.get('postion')
             text = ocr_item.get('text')
@@ -184,19 +188,35 @@ def gen_wechat_image(browser):
 
 
 def gen_video_from_image():
-
     for img_dir in os.listdir(gen_image_dir_path):
+        if img_dir == '.DS_Store':
+            continue
         video_path = os.path.join(gen_video_dir_path, f'{img_dir}.avi')
         image_folder = os.path.join(gen_image_dir_path, img_dir)
         images = [img for img in os.listdir(image_folder) if img.endswith(".jpeg")]
         if not images:
             continue
-        frame = cv2.imread(os.path.join(image_folder, images[0]))
-        height, width, layers = frame.shape
-        video = cv2.VideoWriter(video_path, 0, 1, (width, height))
+        # 第二个参数，flags是读取标记，用来控制读取文件的类型。
+        frame = cv2.imread(os.path.join(image_folder, images[0]))  # 读取一幅图像
+        height, width, layers = frame.shape  # 表示图像的大小。如果是彩色图像，则返回包含行数、列数和通道数的数组；如果是二值图像或灰度图像，则返回包含行数和列数的数组
+        # 第一个参数是要保存的文件的路径,fourcc 指定编码器,fps 要保存的视频的帧率,frameSize 要保存的文件的画面尺寸,isColor 指示是黑白画面还是彩色的画面
+        # video = cv2.VideoWriter(video_path, 0, 1, (width, height))
+        video = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*'MJPG'), 25, (width, height))
+        frame_num = 25 * 10  # 要保存的视频的帧率  * 时间
+        length = len(images) # 数组是无序的
+        images.sort()
+        i = 0
+        for index in range(frame_num):
+            frame_num_i = cv2.imread(os.path.join(image_folder, images[i]))
+            video.write(frame_num_i)
+            if index != 0 and index % 25 == 0:
+                i += 1
+                print(i)
+                if i >= length:
+                    i = length-1
 
-        for image in images:
-            video.write(cv2.imread(os.path.join(image_folder, image)))
+        # for image in images:
+        # video.write(cv2.imread(os.path.join(image_folder, image)))
 
         cv2.destroyAllWindows()
         video.release()
@@ -206,9 +226,9 @@ def gen_video_from_image():
 def get_sound_from_video():
     video_has_sound_path = r'/Users/code/py/short-video-generate/gen/vedio'
     for video_name in os.listdir(video_has_sound_path):
-        sound_name = video_name.split('.')[0]
-        if sound_name == '.DS_Store.':
+        if video_name == '.DS_Store':
             continue
+        sound_name = video_name.split('.')[0]
         video_path = os.path.join(video_has_sound_path, video_name)
         audio_clip = AudioFileClip(video_path)  # 读取视频
         sound_path = os.path.join(sound_dir_path, sound_name + '.wav')  # 拼接目录
@@ -219,20 +239,24 @@ def get_sound_from_video():
 def add_sound_to_video():
     sound_paths = []
     for sound_name in os.listdir(sound_dir_path):
+        if sound_name == '.DS_Store':
+            continue
         sound_path = os.path.join(sound_dir_path, sound_name)
         sound_paths.append(sound_path)
 
     sound_path = random.choice(sound_paths)  # 随机读取一个
     for video_name in os.listdir(gen_video_dir_path):
+        if video_name == '.DS_Store':
+            continue
         video_path = os.path.join(gen_video_dir_path, video_name)  # 自己生成视频的路径
         video = VideoFileClip(video_path)
-        video_time = video.duration # 读取 自己视频的时间长度
+        video_time = video.duration  # 读取 自己视频的时间长度
         audio = AudioFileClip(sound_path)
-        audio_video_time = audio.duration # 音频的时间长度
+        audio_video_time = audio.duration  # 音频的时间长度
         if audio_video_time > video_time:
             # 切割出目标视频长度的音频
             audio = audio.subclip(0, video_time)
-        new_video = video.set_audio(audio) # 加入音频
+        new_video = video.set_audio(audio)  # 加入音频
         save_path = os.path.join(gen_video_dir_path2, f"{video_name.split('.')[0]}-sound.mp4")
         new_video.write_videofile(save_path, threads=8)  # 写入保存的路径
         video.close()
@@ -240,17 +264,18 @@ def add_sound_to_video():
         new_video.close()
         print(f'{save_path} 生成成功')
 
+
 if __name__ == '__main__':
     create_dirs([gen_image_dir_path, gen_video_dir_path, clean_ocr_dir_path, sound_dir_path, gen_video_dir_path2])
     # 获取 orc json 格式对话数据
-    get_ocr_json(ocr_dir_path)
+    # get_ocr_json(ocr_dir_path)
     # 开启浏览器 访问 fake-wechat-gen 项目
-    browser = get_browser()
+    # browser = get_browser()
     # 通过 orc json 和 自动微信聊天生成，并生成一批图片
-    gen_wechat_image(browser)
+    # gen_wechat_image(browser)
     # 通过生成的一批图片，生成视频
     gen_video_from_image()
     # 从抖音下载的视频 转 音频
-    get_sound_from_video()
+    # get_sound_from_video()
     # 将音频添加到自己的视频中
-    add_sound_to_video()
+    # add_sound_to_video()
